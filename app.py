@@ -5,6 +5,11 @@ from ai_client import generate_ai_analysis
 from data_loader import get_stock_history, to_baostock_code
 from fundamentals import get_fundamental_snapshot, score_fundamentals
 from indicators import add_technical_indicators
+from industry_scoring import (
+    add_industry_competitiveness,
+    build_industry_activity_summary,
+    filter_top_industries
+)
 from liquidity_filter import rank_stocks_by_latest_volume
 from prompt_builder import build_stock_selection_prompt
 from screener import DEFAULT_STOCK_POOL, score_stock, screen_stock_pool
@@ -475,6 +480,9 @@ def render_batch_screening():
 
     days = st.slider("每只股票使用最近多少个交易日", 80, 250, 120)
     top_n = st.slider("最终显示前多少只", 5, 20, 10)
+    industry_first = st.checkbox("启用行业优先筛选", value=True)
+    top_industry_count = st.slider("优先行业数量", 1, 20, 5)
+    industry_competitiveness_weight_percent = st.slider("行业内竞争力权重", 0, 50, 20, step=5)
     technical_weight_percent = st.slider("技术面权重", 0, 100, 60, step=5)
     technical_weight = technical_weight_percent / 100
     fundamental_weight = 1 - technical_weight
@@ -491,6 +499,12 @@ def render_batch_screening():
         f"基本面评分 {int(fundamental_weight * 100)}%；"
         f"先技术初筛，再对技术排名前 {fundamental_review_limit} 只做基本面复评。"
     )
+
+    if industry_first:
+        st.caption(
+            f"行业优先已开启：先选成交活跃度靠前的 {top_industry_count} 个行业；"
+            f"最终排序额外加入 {industry_competitiveness_weight_percent}% 的行业内竞争力评分。"
+        )
 
     if st.button("开始批量筛选"):
         if not symbols:
@@ -521,17 +535,42 @@ def render_batch_screening():
             st.subheader("本次实际进入评分模型的成交量前 N 股票池")
             st.dataframe(ranked_volume_df, use_container_width=True)
 
+            if industry_first:
+                industry_summary_df = build_industry_activity_summary(ranked_volume_df)
+
+                if not industry_summary_df.empty:
+                    st.subheader("优先行业")
+                    st.dataframe(
+                        industry_summary_df.head(top_industry_count),
+                        use_container_width=True
+                    )
+
+                    ranked_volume_df = filter_top_industries(
+                        stock_pool_df=ranked_volume_df,
+                        top_industry_count=top_industry_count
+                    )
+
+                    st.subheader("行业优先筛选后的股票池")
+                    st.dataframe(ranked_volume_df, use_container_width=True)
+
             symbols = ranked_volume_df["股票代码"].tolist()
             metadata_df = ranked_volume_df
+
+        model_result_count = top_n
+        review_limit_for_model = fundamental_review_limit
+
+        if industry_first:
+            model_result_count = min(len(symbols), max(top_n, top_n * 2))
+            review_limit_for_model = max(fundamental_review_limit, model_result_count)
 
         with st.spinner("正在批量获取数据并计算评分，可能需要一段时间..."):
             result_df = screen_stock_pool(
                 symbols=symbols,
                 days=days,
-                top_n=top_n,
+                top_n=model_result_count,
                 technical_weight=technical_weight,
                 fundamental_weight=fundamental_weight,
-                fundamental_review_limit=fundamental_review_limit
+                fundamental_review_limit=review_limit_for_model
             )
 
         if result_df.empty:
@@ -539,6 +578,21 @@ def render_batch_screening():
             return
 
         result_df = attach_stock_metadata(result_df, metadata_df)
+
+        if industry_first:
+            result_df = add_industry_competitiveness(result_df)
+            result_df["原模型评分"] = result_df["综合评分"]
+            industry_weight = industry_competitiveness_weight_percent / 100
+            result_df["综合评分"] = (
+                result_df["原模型评分"] * (1 - industry_weight)
+                + result_df["行业内竞争力评分"] * industry_weight
+            ).round(2)
+            result_df = result_df.sort_values(
+                by="综合评分",
+                ascending=False
+            )
+
+        result_df = result_df.head(top_n)
 
         st.subheader("筛选结果")
         st.dataframe(result_df, use_container_width=True)
