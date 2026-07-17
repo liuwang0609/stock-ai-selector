@@ -190,7 +190,7 @@ def render_app_header():
         <div class="app-header">
             <div>
                 <h1>A股AI选股助手</h1>
-                <p>技术面筛选 · 基本面复评 · 成交量预筛 · AI研究报告</p>
+                <p>行业优先 · 基本面复评 · 技术面择时 · AI研究报告</p>
             </div>
             <div class="app-badge">研究辅助工具</div>
         </div>
@@ -241,10 +241,10 @@ def render_scoring_logic_explainer():
             """
             批量筛选中的综合排序逻辑：
 
-            1. 先从全 A 股中选出最近交易日成交量靠前的活跃股票。
-            2. 按行业成交活跃度选出优先行业。
-            3. 对候选股票计算技术评分和基本面评分。
-            4. 对候选股票计算行业内竞争力评分。
+            1. 先从全 A 股中按行业汇总成交额、涨跌幅和上涨占比，选出优先行业。
+            2. 在优先行业中选择成交量和成交额更活跃的股票进入候选池。
+            3. 对候选股票计算基本面评分和行业内竞争力评分。
+            4. 对候选股票计算技术评分，主要用于择时确认。
             5. 最终综合评分会在原模型评分基础上，额外加入行业内竞争力权重。
 
             当前默认逻辑可以概括为：
@@ -525,7 +525,7 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
             filtered_df = filtered_df[filtered_df["行业板块"].isin(selected_industries)].copy()
 
     st.subheader("股票池预览")
-    st.caption("默认从全 A 股中按最近交易日成交量选择活跃股票。预览最多显示前 300 行。")
+    st.caption("默认先看行业，再从优先行业中选择成交量活跃的股票。预览最多显示前 300 行。")
     st.dataframe(filtered_df.head(300), use_container_width=True)
 
     if filtered_df.empty:
@@ -557,7 +557,7 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
     if scan_all:
         st.info(f"本次将扫描筛选后的全部 {len(scan_df)} 只股票。")
     else:
-        st.info(f"点击开始后，会先按最近交易日成交量排序，再取成交量前 {int(scan_count)} 只进入评分模型。")
+        st.info(f"点击开始后，会先选择优先行业，再从优先行业中取成交量前 {int(scan_count)} 只进入评分模型。")
 
     symbols = scan_df["股票代码"].tolist()
 
@@ -566,7 +566,7 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
 
 def render_batch_screening():
     st.subheader("批量筛选股票")
-    st.caption("默认流程：成交量活跃股 → 优先行业 → 技术初筛 → 基本面复评 → AI研究报告。")
+    st.caption("默认流程：优先行业 → 行业内基本面与成交量筛选 → 技术面择时确认 → AI研究报告。")
 
     pool_mode = st.radio(
         "股票池来源",
@@ -662,21 +662,18 @@ def render_batch_screening():
                 st.warning("当前过滤后的股票池为空，无法进行成交量排序。")
                 return
 
-            with st.spinner("正在按最近交易日成交量排序，并选出成交量前 N 只股票..."):
-                ranked_volume_df = load_top_volume_pool(
-                    stock_pool_df=filtered_pool_df,
-                    top_n=int(scan_count)
-                )
-
-            if ranked_volume_df.empty:
-                st.warning("没有获取到成交量排序结果。")
-                return
-
-            st.subheader("本次实际进入评分模型的成交量前 N 股票池")
-            st.dataframe(ranked_volume_df, use_container_width=True)
-
             if industry_first:
-                industry_summary_df = build_industry_activity_summary(ranked_volume_df)
+                with st.spinner("正在计算行业活跃度，并选出优先行业..."):
+                    market_snapshot_df = load_top_volume_pool(
+                        stock_pool_df=filtered_pool_df,
+                        top_n=len(filtered_pool_df)
+                    )
+
+                if market_snapshot_df.empty:
+                    st.warning("没有获取到行业快照数据。")
+                    return
+
+                industry_summary_df = build_industry_activity_summary(market_snapshot_df)
 
                 if not industry_summary_df.empty:
                     st.subheader("优先行业")
@@ -685,13 +682,41 @@ def render_batch_screening():
                         use_container_width=True
                     )
 
-                    ranked_volume_df = filter_top_industries(
-                        stock_pool_df=ranked_volume_df,
+                    industry_pool_df = filter_top_industries(
+                        stock_pool_df=market_snapshot_df,
                         top_industry_count=top_industry_count
                     )
 
-                    st.subheader("行业优先筛选后的股票池")
-                    st.dataframe(ranked_volume_df, use_container_width=True)
+                    ranked_volume_df = (
+                        industry_pool_df
+                        .sort_values("当日成交量", ascending=False)
+                        .head(int(scan_count))
+                        .reset_index(drop=True)
+                    )
+                else:
+                    ranked_volume_df = (
+                        market_snapshot_df
+                        .sort_values("当日成交量", ascending=False)
+                        .head(int(scan_count))
+                        .reset_index(drop=True)
+                    )
+
+                st.subheader("优先行业中的成交量活跃股票")
+                st.dataframe(ranked_volume_df, use_container_width=True)
+
+            else:
+                with st.spinner("正在按最近交易日成交量排序，并选出成交量前 N 只股票..."):
+                    ranked_volume_df = load_top_volume_pool(
+                        stock_pool_df=filtered_pool_df,
+                        top_n=int(scan_count)
+                    )
+
+                if ranked_volume_df.empty:
+                    st.warning("没有获取到成交量排序结果。")
+                    return
+
+                st.subheader("本次实际进入评分模型的成交量前 N 股票池")
+                st.dataframe(ranked_volume_df, use_container_width=True)
 
             symbols = ranked_volume_df["股票代码"].tolist()
             metadata_df = ranked_volume_df

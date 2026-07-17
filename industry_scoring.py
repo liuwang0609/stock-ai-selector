@@ -7,22 +7,48 @@ def build_industry_activity_summary(stock_pool_df: pd.DataFrame) -> pd.DataFrame
     if stock_pool_df.empty or not required_columns.issubset(stock_pool_df.columns):
         return pd.DataFrame()
 
+    source_df = stock_pool_df.copy()
+
+    if "快照涨跌幅" not in source_df.columns:
+        source_df["快照涨跌幅"] = pd.NA
+
+    source_df["是否上涨"] = pd.to_numeric(
+        source_df["快照涨跌幅"],
+        errors="coerce"
+    ) > 0
+
     summary_df = (
-        stock_pool_df
+        source_df
         .groupby("行业板块", dropna=False)
         .agg(
             行业股票数量=("股票代码", "count"),
             行业成交量=("当日成交量", "sum"),
             行业成交额=("当日成交额", "sum"),
-            行业平均成交额=("当日成交额", "mean")
+            行业平均成交额=("当日成交额", "mean"),
+            行业平均涨跌幅=("快照涨跌幅", "mean"),
+            行业内上涨占比=("是否上涨", "mean")
         )
         .reset_index()
     )
 
-    summary_df["行业活跃度评分"] = summary_df["行业成交额"].rank(
+    summary_df["成交额分位"] = summary_df["行业成交额"].rank(
         pct=True,
         ascending=True
     ) * 100
+    summary_df["涨跌幅分位"] = summary_df["行业平均涨跌幅"].rank(
+        pct=True,
+        ascending=True
+    ) * 100
+    summary_df["上涨占比分位"] = summary_df["行业内上涨占比"].rank(
+        pct=True,
+        ascending=True
+    ) * 100
+
+    summary_df["行业活跃度评分"] = (
+        summary_df["成交额分位"].fillna(50) * 0.55
+        + summary_df["涨跌幅分位"].fillna(50) * 0.30
+        + summary_df["上涨占比分位"].fillna(50) * 0.15
+    ).round(2)
 
     return summary_df.sort_values(
         by="行业活跃度评分",

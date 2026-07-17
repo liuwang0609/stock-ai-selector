@@ -33,17 +33,19 @@ def _rank_with_akshare_spot(stock_pool_df: pd.DataFrame, top_n: int) -> pd.DataF
         "代码": "原始代码",
         "名称": "快照名称",
         "最新价": "快照最新价",
+        "涨跌幅": "快照涨跌幅",
         "成交量": "当日成交量",
         "成交额": "当日成交额",
         "时间戳": "快照时间"
     })
 
     spot_df["股票代码"] = spot_df["原始代码"].map(_normalize_spot_code)
+    spot_df["快照涨跌幅"] = pd.to_numeric(spot_df["快照涨跌幅"], errors="coerce")
     spot_df["当日成交量"] = pd.to_numeric(spot_df["当日成交量"], errors="coerce")
     spot_df["当日成交额"] = pd.to_numeric(spot_df["当日成交额"], errors="coerce")
 
     merged_df = stock_pool_df.merge(
-        spot_df[["股票代码", "快照最新价", "当日成交量", "当日成交额", "快照时间"]],
+        spot_df[["股票代码", "快照最新价", "快照涨跌幅", "当日成交量", "当日成交额", "快照时间"]],
         on="股票代码",
         how="inner"
     )
@@ -102,6 +104,7 @@ def _rank_with_baostock_history(
                     record.update({
                         "最近交易日": latest["date"],
                         "快照最新价": pd.to_numeric(latest["close"], errors="coerce"),
+                        "快照涨跌幅": pd.NA,
                         "当日成交量": pd.to_numeric(latest["volume"], errors="coerce"),
                         "当日成交额": pd.to_numeric(latest["amount"], errors="coerce"),
                         "快照时间": "BaoStock日线"
