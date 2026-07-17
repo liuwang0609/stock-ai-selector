@@ -317,8 +317,14 @@ def render_single_stock_analysis():
                 fundamental_col1, fundamental_col2, fundamental_col3, fundamental_col4 = st.columns(4)
                 fundamental_col1.metric("基本面评分", f"{fundamental_analysis['score']} / 100")
                 fundamental_col2.metric("ROE", format_number(fundamental_snapshot.get("ROE")))
-                fundamental_col3.metric("净利润同比", format_number(fundamental_snapshot.get("净利润同比")))
-                fundamental_col4.metric("净利率", format_number(fundamental_snapshot.get("净利率")))
+                fundamental_col3.metric("ROE稳定性", format_number(fundamental_snapshot.get("ROE稳定性评分")))
+                fundamental_col4.metric("净利润同比", format_number(fundamental_snapshot.get("净利润同比")))
+
+                growth_col1, growth_col2, growth_col3, growth_col4 = st.columns(4)
+                growth_col1.metric("营收同比", format_number(fundamental_snapshot.get("营收同比")))
+                growth_col2.metric("净利率", format_number(fundamental_snapshot.get("净利率")))
+                growth_col3.metric("毛利率", format_number(fundamental_snapshot.get("毛利率")))
+                growth_col4.metric("毛利率稳定性", format_number(fundamental_snapshot.get("毛利率稳定性评分")))
 
                 st.caption(f"使用财报日期：{fundamental_snapshot.get('财报日期', 'N/A')}")
 

@@ -92,6 +92,7 @@ def add_industry_competitiveness(result_df: pd.DataFrame) -> pd.DataFrame:
         "毛利率行业分位": "毛利率",
         "净利率行业分位": "净利率",
         "净利润增速行业分位": "净利润同比",
+        "营收增速行业分位": "营收同比",
         "营收行业分位": "主营收入",
         "净利润行业分位": "净利润"
     }
@@ -107,9 +108,28 @@ def add_industry_competitiveness(result_df: pd.DataFrame) -> pd.DataFrame:
         "毛利率行业分位",
         "净利率行业分位",
         "净利润增速行业分位",
+        "营收增速行业分位",
         "营收行业分位",
         "净利润行业分位"
     ]
+
+    moat_columns = [
+        column
+        for column in [
+            "毛利率行业分位",
+            "ROE行业分位",
+            "ROE稳定性评分",
+            "毛利率稳定性评分"
+        ]
+        if column in result_df.columns
+    ]
+
+    if moat_columns:
+        result_df["技术壁垒代理评分"] = result_df[moat_columns].mean(
+            axis=1,
+            skipna=True
+        ).fillna(50).round(2)
+        score_columns.append("技术壁垒代理评分")
 
     result_df["行业内竞争力评分"] = result_df[score_columns].mean(
         axis=1,

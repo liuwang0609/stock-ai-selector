@@ -60,6 +60,58 @@ def _extract_financial_abstract_value(df: pd.DataFrame, metric_name: str, period
     return _to_number(matched_df.iloc[0][period])
 
 
+def _extract_financial_abstract_series(
+    df: pd.DataFrame,
+    metric_name: str,
+    periods: list[str],
+    is_percent: bool = False
+) -> pd.Series:
+    values = [
+        _extract_financial_abstract_value(df, metric_name, period)
+        for period in periods
+    ]
+    series = pd.Series(values, dtype="float64")
+
+    if is_percent:
+        series = series / 100
+
+    return series.dropna()
+
+
+def _series_mean(series: pd.Series):
+    if series.empty:
+        return pd.NA
+    return series.mean()
+
+
+def _series_std(series: pd.Series):
+    if len(series) < 2:
+        return pd.NA
+    return series.std()
+
+
+def _stability_score(series: pd.Series, min_good_mean: float, max_good_std: float):
+    if series.empty:
+        return pd.NA
+
+    avg_value = series.mean()
+    std_value = series.std() if len(series) >= 2 else 0
+
+    score = 0
+
+    if avg_value >= min_good_mean:
+        score += 60
+    elif avg_value > 0:
+        score += 35
+
+    if std_value <= max_good_std:
+        score += 40
+    elif std_value <= max_good_std * 2:
+        score += 20
+
+    return min(score, 100)
+
+
 def _get_fundamental_snapshot_with_akshare(symbol: str) -> dict:
     df = ak.stock_financial_abstract(symbol=_plain_symbol(symbol))
 
@@ -76,6 +128,20 @@ def _get_fundamental_snapshot_with_akshare(symbol: str) -> dict:
         return {}
 
     latest_period = str(period_columns[0])
+    recent_periods = [str(period) for period in period_columns[:8]]
+
+    roe_series = _extract_financial_abstract_series(
+        df,
+        "净资产收益率(ROE)",
+        recent_periods,
+        is_percent=True
+    )
+    gross_margin_series = _extract_financial_abstract_series(
+        df,
+        "毛利率",
+        recent_periods,
+        is_percent=True
+    )
 
     return {
         "财报年份": int(latest_period[:4]),
@@ -94,6 +160,9 @@ def _get_fundamental_snapshot_with_akshare(symbol: str) -> dict:
         "净利润": _extract_financial_abstract_value(df, "归母净利润", latest_period),
         "每股收益TTM": _extract_financial_abstract_value(df, "基本每股收益", latest_period),
         "主营收入": _extract_financial_abstract_value(df, "营业总收入", latest_period),
+        "营收同比": _percent_to_ratio(
+            _extract_financial_abstract_value(df, "营业总收入增长率", latest_period)
+        ),
         "净利润同比": _percent_to_ratio(
             _extract_financial_abstract_value(df, "归属母公司净利润增长率", latest_period)
         ),
@@ -107,6 +176,20 @@ def _get_fundamental_snapshot_with_akshare(symbol: str) -> dict:
             df,
             "经营活动净现金/归属母公司的净利润",
             latest_period
+        ),
+        "ROE均值": _series_mean(roe_series),
+        "ROE波动": _series_std(roe_series),
+        "ROE稳定性评分": _stability_score(
+            roe_series,
+            min_good_mean=0.08,
+            max_good_std=0.03
+        ),
+        "毛利率均值": _series_mean(gross_margin_series),
+        "毛利率波动": _series_std(gross_margin_series),
+        "毛利率稳定性评分": _stability_score(
+            gross_margin_series,
+            min_good_mean=0.2,
+            max_good_std=0.05
         )
     }
 
@@ -145,12 +228,19 @@ def _get_fundamental_snapshot_with_baostock(symbol: str) -> dict:
                 "净利润": _to_number(profit.get("netProfit")),
                 "每股收益TTM": _to_number(profit.get("epsTTM")),
                 "主营收入": _to_number(profit.get("MBRevenue")),
+                "营收同比": pd.NA,
                 "净利润同比": _to_number(growth.get("YOYNI")),
                 "EPS同比": _to_number(growth.get("YOYEPSBasic")),
                 "净资产同比": _to_number(growth.get("YOYEquity")),
                 "资产同比": _to_number(growth.get("YOYAsset")),
                 "资产负债率": _to_number(balance.get("liabilityToAsset")),
-                "经营现金流净利润比": _to_number(cash_flow.get("CFOToNP"))
+                "经营现金流净利润比": _to_number(cash_flow.get("CFOToNP")),
+                "ROE均值": pd.NA,
+                "ROE波动": pd.NA,
+                "ROE稳定性评分": pd.NA,
+                "毛利率均值": pd.NA,
+                "毛利率波动": pd.NA,
+                "毛利率稳定性评分": pd.NA
             }
 
         return {}
@@ -188,10 +278,10 @@ def score_fundamentals(snapshot: dict) -> dict:
     roe = snapshot.get("ROE")
     if pd.notna(roe):
         if roe >= 0.15:
-            score += 25
+            score += 15
             reasons.append("ROE 较高，盈利能力较强。")
         elif roe >= 0.08:
-            score += 15
+            score += 10
             reasons.append("ROE 处于可接受区间。")
         elif roe > 0:
             score += 5
@@ -199,35 +289,64 @@ def score_fundamentals(snapshot: dict) -> dict:
         else:
             risks.append("ROE 为负，盈利能力存在压力。")
 
+    roe_stability_score = snapshot.get("ROE稳定性评分")
+    if pd.notna(roe_stability_score):
+        score += min(roe_stability_score * 0.15, 15)
+
+        if roe_stability_score >= 75:
+            reasons.append("ROE 多期表现较稳定。")
+        elif roe_stability_score < 45:
+            risks.append("ROE 稳定性偏弱，盈利质量持续性需要观察。")
+
     yoy_ni = snapshot.get("净利润同比")
     if pd.notna(yoy_ni):
         if yoy_ni >= 0.2:
-            score += 20
+            score += 15
             reasons.append("净利润同比增长较快，成长性较好。")
         elif yoy_ni >= 0:
-            score += 10
+            score += 8
             reasons.append("净利润同比保持正增长。")
         else:
             risks.append("净利润同比下滑，成长性承压。")
 
+    revenue_growth = snapshot.get("营收同比")
+    if pd.notna(revenue_growth):
+        if revenue_growth >= 0.2:
+            score += 10
+            reasons.append("营业收入同比增长较快，需求扩张较明显。")
+        elif revenue_growth >= 0:
+            score += 5
+            reasons.append("营业收入同比保持正增长。")
+        else:
+            risks.append("营业收入同比下滑，需求端存在压力。")
+
     np_margin = snapshot.get("净利率")
     if pd.notna(np_margin):
         if np_margin >= 0.15:
-            score += 15
+            score += 10
             reasons.append("净利率较高，利润质量较好。")
         elif np_margin >= 0.05:
-            score += 8
+            score += 5
             reasons.append("净利率处于正向区间。")
         else:
             risks.append("净利率偏低，盈利质量一般。")
 
+    gross_margin_stability_score = snapshot.get("毛利率稳定性评分")
+    if pd.notna(gross_margin_stability_score):
+        score += min(gross_margin_stability_score * 0.10, 10)
+
+        if gross_margin_stability_score >= 75:
+            reasons.append("毛利率多期表现较稳定，具备一定产品或成本优势。")
+        elif gross_margin_stability_score < 45:
+            risks.append("毛利率稳定性偏弱，行业竞争或成本压力需要关注。")
+
     cfo_to_np = snapshot.get("经营现金流净利润比")
     if pd.notna(cfo_to_np):
         if cfo_to_np >= 1:
-            score += 15
+            score += 10
             reasons.append("经营现金流对净利润覆盖较好。")
         elif cfo_to_np > 0:
-            score += 8
+            score += 5
             reasons.append("经营现金流为正。")
         else:
             risks.append("经营现金流表现偏弱。")
@@ -235,10 +354,10 @@ def score_fundamentals(snapshot: dict) -> dict:
     liability_to_asset = snapshot.get("资产负债率")
     if pd.notna(liability_to_asset):
         if liability_to_asset <= 0.6:
-            score += 15
+            score += 10
             reasons.append("资产负债率处于相对健康区间。")
         elif liability_to_asset <= 0.75:
-            score += 8
+            score += 5
             risks.append("资产负债率略高，需要关注偿债压力。")
         else:
             risks.append("资产负债率较高，财务杠杆风险需要关注。")
@@ -246,7 +365,7 @@ def score_fundamentals(snapshot: dict) -> dict:
     eps_ttm = snapshot.get("每股收益TTM")
     if pd.notna(eps_ttm):
         if eps_ttm > 0:
-            score += 10
+            score += 5
             reasons.append("每股收益 TTM 为正。")
         else:
             risks.append("每股收益 TTM 为负。")
