@@ -587,10 +587,14 @@ def render_batch_screening():
         step=1
     )
     industry_first = st.checkbox("启用行业优先模型", value=True)
+    industry_group_column = st.selectbox(
+        "板块评分口径",
+        ["行业板块", "市场板块"],
+        index=0
+    )
 
     days = 120
     top_industry_count = 5
-    industry_group_column = "行业板块"
     industry_competitiveness_weight_percent = 20
     technical_weight_percent = 60
     fundamental_review_limit = int(top_n)
@@ -609,11 +613,6 @@ def render_batch_screening():
             max_value=20,
             value=5,
             step=1
-        )
-        industry_group_column = st.selectbox(
-            "板块评分口径",
-            ["行业板块", "市场板块"],
-            index=0
         )
         industry_competitiveness_weight_percent = st.slider(
             "行业内竞争力权重",
