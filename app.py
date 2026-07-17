@@ -403,42 +403,60 @@ def render_manual_pool_editor() -> tuple[list[str], pd.DataFrame]:
 
 
 def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
-    include_bj = st.checkbox("包含北交所股票", value=True)
+    include_bj = True
 
     with st.spinner("正在加载全 A 股股票池..."):
         universe_df = load_stock_universe(include_bj=include_bj)
 
     st.metric("全 A 股股票池数量", len(universe_df))
 
-    board_options = sorted(universe_df["市场板块"].dropna().unique().tolist())
-    selected_boards = st.multiselect(
-        "按市场板块过滤",
-        board_options,
-        default=board_options
-    )
-
     filtered_df = universe_df.copy()
 
-    if selected_boards:
-        filtered_df = filtered_df[filtered_df["市场板块"].isin(selected_boards)].copy()
+    with st.expander("股票池过滤（可选）", expanded=False):
+        include_bj = st.checkbox("包含北交所股票", value=True)
 
-    industry_options = sorted(filtered_df["行业板块"].dropna().unique().tolist())
-    selected_industries = st.multiselect(
-        "按行业板块过滤（不选则不过滤）",
-        industry_options
-    )
+        if include_bj != True:
+            with st.spinner("正在重新加载股票池..."):
+                universe_df = load_stock_universe(include_bj=include_bj)
+            filtered_df = universe_df.copy()
 
-    if selected_industries:
-        filtered_df = filtered_df[filtered_df["行业板块"].isin(selected_industries)].copy()
+        board_options = sorted(universe_df["市场板块"].dropna().unique().tolist())
+        selected_boards = st.multiselect(
+            "市场板块",
+            board_options,
+            default=board_options
+        )
+
+        if selected_boards:
+            filtered_df = filtered_df[filtered_df["市场板块"].isin(selected_boards)].copy()
+
+        industry_options = sorted(filtered_df["行业板块"].dropna().unique().tolist())
+        selected_industries = st.multiselect(
+            "行业板块",
+            industry_options
+        )
+
+        if selected_industries:
+            filtered_df = filtered_df[filtered_df["行业板块"].isin(selected_industries)].copy()
 
     st.subheader("股票池预览")
-    st.caption("预览最多显示前 500 行。筛选时使用下方“本次实际扫描数量”控制运行时间。")
-    st.dataframe(filtered_df.head(500), use_container_width=True)
+    st.caption("默认从全 A 股中按最近交易日成交量选择活跃股票。预览最多显示前 300 行。")
+    st.dataframe(filtered_df.head(300), use_container_width=True)
 
     if filtered_df.empty:
         return [], filtered_df
 
-    scan_all = st.checkbox("扫描筛选后的全部股票（可能很慢）", value=False)
+    default_scan_count = min(50, len(filtered_df))
+    scan_count = st.number_input(
+        "扫描成交量前多少只股票",
+        min_value=10,
+        max_value=len(filtered_df),
+        value=default_scan_count,
+        step=10
+    )
+
+    with st.expander("运行范围（高级）", expanded=False):
+        scan_all = st.checkbox("扫描筛选后的全部股票（非常慢）", value=False)
 
     if scan_all:
         st.session_state["full_market_selection_method"] = "全部股票"
@@ -446,14 +464,6 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
         st.session_state["full_market_scan_count"] = len(filtered_df)
         scan_df = filtered_df
     else:
-        default_scan_count = min(200, len(filtered_df))
-        scan_count = st.number_input(
-            "本次实际扫描数量",
-            min_value=1,
-            max_value=len(filtered_df),
-            value=default_scan_count,
-            step=50
-        )
         st.session_state["full_market_selection_method"] = "按最近交易日成交量前N只"
         st.session_state["full_market_filtered_pool"] = filtered_df
         st.session_state["full_market_scan_count"] = int(scan_count)
@@ -471,7 +481,7 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
 
 def render_batch_screening():
     st.subheader("批量筛选股票")
-    st.caption("全市场扫描会逐只获取日线数据，运行时间较长；课堂演示建议先限制扫描数量。")
+    st.caption("默认流程：成交量活跃股 → 优先行业 → 技术初筛 → 基本面复评 → AI研究报告。")
 
     pool_mode = st.radio(
         "股票池来源",
@@ -484,31 +494,70 @@ def render_batch_screening():
     else:
         symbols, metadata_df = render_manual_pool_editor()
 
-    days = st.slider("每只股票使用最近多少个交易日", 80, 250, 120)
-    top_n = st.slider("最终显示前多少只", 5, 20, 10)
-    industry_first = st.checkbox("启用行业优先筛选", value=True)
-    top_industry_count = st.slider("优先行业数量", 1, 20, 5)
-    industry_competitiveness_weight_percent = st.slider("行业内竞争力权重", 0, 50, 20, step=5)
-    technical_weight_percent = st.slider("技术面权重", 0, 100, 60, step=5)
+    top_n = st.number_input(
+        "最终输出股票数量",
+        min_value=5,
+        max_value=20,
+        value=10,
+        step=1
+    )
+    industry_first = st.checkbox("启用行业优先模型", value=True)
+
+    days = 120
+    top_industry_count = 5
+    industry_competitiveness_weight_percent = 20
+    technical_weight_percent = 60
+    fundamental_review_limit = int(top_n)
+
+    with st.expander("高级评分参数", expanded=False):
+        days = st.number_input(
+            "日线数据观察天数",
+            min_value=80,
+            max_value=250,
+            value=120,
+            step=10
+        )
+        top_industry_count = st.number_input(
+            "优先行业数量",
+            min_value=1,
+            max_value=20,
+            value=5,
+            step=1
+        )
+        industry_competitiveness_weight_percent = st.slider(
+            "行业内竞争力权重",
+            0,
+            50,
+            20,
+            step=5
+        )
+        technical_weight_percent = st.slider(
+            "技术面权重",
+            0,
+            100,
+            60,
+            step=5
+        )
+        fundamental_review_limit = st.number_input(
+            "基本面复评数量",
+            min_value=int(top_n),
+            max_value=100,
+            value=int(top_n),
+            step=5
+        )
+
     technical_weight = technical_weight_percent / 100
     fundamental_weight = 1 - technical_weight
-    fundamental_review_limit = st.slider(
-        "基本面复评数量",
-        min_value=top_n,
-        max_value=100,
-        value=top_n,
-        step=5
-    )
 
-    st.caption(
-        f"当前综合评分 = 技术评分 {technical_weight_percent}% + "
-        f"基本面评分 {int(fundamental_weight * 100)}%；"
-        f"先技术初筛，再对技术排名前 {fundamental_review_limit} 只做基本面复评。"
+    st.info(
+        f"当前设置：输出 {int(top_n)} 只；技术面 {technical_weight_percent}% / "
+        f"基本面 {int(fundamental_weight * 100)}%；"
+        f"基本面复评 {int(fundamental_review_limit)} 只。"
     )
 
     if industry_first:
         st.caption(
-            f"行业优先已开启：先选成交活跃度靠前的 {top_industry_count} 个行业；"
+            f"行业优先已开启：先选成交活跃度靠前的 {int(top_industry_count)} 个行业；"
             f"最终排序额外加入 {industry_competitiveness_weight_percent}% 的行业内竞争力评分。"
         )
 
