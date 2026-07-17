@@ -28,6 +28,7 @@ def build_industry_activity_summary(
             行业成交量=("当日成交量", "sum"),
             行业成交额=("当日成交额", "sum"),
             行业平均成交额=("当日成交额", "mean"),
+            行业中位成交额=("当日成交额", "median"),
             行业平均涨跌幅=("快照涨跌幅", "mean"),
             行业内上涨占比=("是否上涨", "mean")
         )
@@ -42,6 +43,10 @@ def build_industry_activity_summary(
         pct=True,
         ascending=True
     ) * 100
+    summary_df["中位成交额分位"] = summary_df["行业中位成交额"].rank(
+        pct=True,
+        ascending=True
+    ) * 100
     summary_df["涨跌幅分位"] = summary_df["行业平均涨跌幅"].rank(
         pct=True,
         ascending=True
@@ -52,10 +57,10 @@ def build_industry_activity_summary(
     ) * 100
 
     summary_df["行业活跃度评分"] = (
-        summary_df["成交额分位"].fillna(50) * 0.15
-        + summary_df["平均成交额分位"].fillna(50) * 0.25
-        + summary_df["涨跌幅分位"].fillna(50) * 0.35
-        + summary_df["上涨占比分位"].fillna(50) * 0.25
+        summary_df["中位成交额分位"].fillna(50) * 0.20
+        + summary_df["平均成交额分位"].fillna(50) * 0.10
+        + summary_df["涨跌幅分位"].fillna(50) * 0.40
+        + summary_df["上涨占比分位"].fillna(50) * 0.30
     ).round(2)
 
     return summary_df.sort_values(
