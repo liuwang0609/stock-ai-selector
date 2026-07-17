@@ -1,8 +1,11 @@
 import pandas as pd
 
 
-def build_industry_activity_summary(stock_pool_df: pd.DataFrame) -> pd.DataFrame:
-    required_columns = {"行业板块", "当日成交量", "当日成交额"}
+def build_industry_activity_summary(
+    stock_pool_df: pd.DataFrame,
+    group_column: str = "行业板块"
+) -> pd.DataFrame:
+    required_columns = {group_column, "当日成交量", "当日成交额"}
 
     if stock_pool_df.empty or not required_columns.issubset(stock_pool_df.columns):
         return pd.DataFrame()
@@ -19,7 +22,7 @@ def build_industry_activity_summary(stock_pool_df: pd.DataFrame) -> pd.DataFrame
 
     summary_df = (
         source_df
-        .groupby("行业板块", dropna=False)
+        .groupby(group_column, dropna=False)
         .agg(
             行业股票数量=("股票代码", "count"),
             行业成交量=("当日成交量", "sum"),
@@ -35,6 +38,10 @@ def build_industry_activity_summary(stock_pool_df: pd.DataFrame) -> pd.DataFrame
         pct=True,
         ascending=True
     ) * 100
+    summary_df["平均成交额分位"] = summary_df["行业平均成交额"].rank(
+        pct=True,
+        ascending=True
+    ) * 100
     summary_df["涨跌幅分位"] = summary_df["行业平均涨跌幅"].rank(
         pct=True,
         ascending=True
@@ -45,9 +52,10 @@ def build_industry_activity_summary(stock_pool_df: pd.DataFrame) -> pd.DataFrame
     ) * 100
 
     summary_df["行业活跃度评分"] = (
-        summary_df["成交额分位"].fillna(50) * 0.55
-        + summary_df["涨跌幅分位"].fillna(50) * 0.30
-        + summary_df["上涨占比分位"].fillna(50) * 0.15
+        summary_df["成交额分位"].fillna(50) * 0.15
+        + summary_df["平均成交额分位"].fillna(50) * 0.25
+        + summary_df["涨跌幅分位"].fillna(50) * 0.35
+        + summary_df["上涨占比分位"].fillna(50) * 0.25
     ).round(2)
 
     return summary_df.sort_values(
@@ -56,16 +64,23 @@ def build_industry_activity_summary(stock_pool_df: pd.DataFrame) -> pd.DataFrame
     ).reset_index(drop=True)
 
 
-def filter_top_industries(stock_pool_df: pd.DataFrame, top_industry_count: int) -> pd.DataFrame:
-    summary_df = build_industry_activity_summary(stock_pool_df)
+def filter_top_industries(
+    stock_pool_df: pd.DataFrame,
+    top_industry_count: int,
+    group_column: str = "行业板块"
+) -> pd.DataFrame:
+    summary_df = build_industry_activity_summary(
+        stock_pool_df,
+        group_column=group_column
+    )
 
     if summary_df.empty:
         return stock_pool_df
 
-    selected_industries = summary_df.head(top_industry_count)["行业板块"].tolist()
+    selected_industries = summary_df.head(top_industry_count)[group_column].tolist()
 
     return stock_pool_df[
-        stock_pool_df["行业板块"].isin(selected_industries)
+        stock_pool_df[group_column].isin(selected_industries)
     ].copy()
 
 

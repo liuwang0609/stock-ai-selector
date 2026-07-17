@@ -590,6 +590,7 @@ def render_batch_screening():
 
     days = 120
     top_industry_count = 5
+    industry_group_column = "行业板块"
     industry_competitiveness_weight_percent = 20
     technical_weight_percent = 60
     fundamental_review_limit = int(top_n)
@@ -608,6 +609,11 @@ def render_batch_screening():
             max_value=20,
             value=5,
             step=1
+        )
+        industry_group_column = st.selectbox(
+            "板块评分口径",
+            ["行业板块", "市场板块"],
+            index=0
         )
         industry_competitiveness_weight_percent = st.slider(
             "行业内竞争力权重",
@@ -642,7 +648,7 @@ def render_batch_screening():
 
     if industry_first:
         st.caption(
-            f"行业优先已开启：先选成交活跃度靠前的 {int(top_industry_count)} 个行业；"
+            f"行业优先已开启：按“{industry_group_column}”选成交活跃度靠前的 {int(top_industry_count)} 个板块；"
             f"最终排序额外加入 {industry_competitiveness_weight_percent}% 的行业内竞争力评分。"
         )
 
@@ -673,7 +679,10 @@ def render_batch_screening():
                     st.warning("没有获取到行业快照数据。")
                     return
 
-                industry_summary_df = build_industry_activity_summary(market_snapshot_df)
+                industry_summary_df = build_industry_activity_summary(
+                    market_snapshot_df,
+                    group_column=industry_group_column
+                )
 
                 if not industry_summary_df.empty:
                     st.subheader("优先行业")
@@ -684,7 +693,8 @@ def render_batch_screening():
 
                     industry_pool_df = filter_top_industries(
                         stock_pool_df=market_snapshot_df,
-                        top_industry_count=top_industry_count
+                        top_industry_count=top_industry_count,
+                        group_column=industry_group_column
                     )
 
                     ranked_volume_df = (
