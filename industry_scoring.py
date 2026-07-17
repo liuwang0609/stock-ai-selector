@@ -57,9 +57,9 @@ def build_industry_activity_summary(
     ) * 100
 
     summary_df["行业活跃度评分"] = (
-        summary_df["中位成交额分位"].fillna(50) * 0.20
-        + summary_df["平均成交额分位"].fillna(50) * 0.10
-        + summary_df["涨跌幅分位"].fillna(50) * 0.40
+        # 只保留中位成交额参与主评分，降低行业体量偏差
+        summary_df["中位成交额分位"].fillna(50) * 0.25
+        + summary_df["涨跌幅分位"].fillna(50) * 0.45
         + summary_df["上涨占比分位"].fillna(50) * 0.30
     ).round(2)
 
@@ -89,26 +89,20 @@ def filter_top_industries(
     ].copy()
 
 
-def _rank_percentile(group: pd.DataFrame, column: str) -> pd.Series:
-    if column not in group.columns:
-        return pd.Series([pd.NA] * len(group), index=group.index)
-
-    values = pd.to_numeric(group[column], errors="coerce")
+def _rank_percentile_values(values: pd.Series) -> pd.Series:
+    values = pd.to_numeric(values, errors="coerce")
 
     if values.notna().sum() == 0:
-        return pd.Series([pd.NA] * len(group), index=group.index)
+        return pd.Series([pd.NA] * len(values), index=values.index)
 
     return values.rank(pct=True, ascending=True) * 100
 
 
-def _rank_position(group: pd.DataFrame, column: str) -> pd.Series:
-    if column not in group.columns:
-        return pd.Series([pd.NA] * len(group), index=group.index)
-
-    values = pd.to_numeric(group[column], errors="coerce")
+def _rank_position_values(values: pd.Series) -> pd.Series:
+    values = pd.to_numeric(values, errors="coerce")
 
     if values.notna().sum() == 0:
-        return pd.Series([pd.NA] * len(group), index=group.index)
+        return pd.Series([pd.NA] * len(values), index=values.index)
 
     return values.rank(method="min", ascending=False)
 
@@ -124,14 +118,15 @@ def add_industry_competitiveness(result_df: pd.DataFrame) -> pd.DataFrame:
     result_df["行业内综合排名"] = grouped["综合评分"].transform(
         lambda group: group.rank(method="min", ascending=False)
     )
-    result_df["行业内营收排名"] = grouped.apply(
-        lambda group: _rank_position(group, "主营收入"),
-        include_groups=False
-    ).reset_index(level=0, drop=True)
-    result_df["行业内净利润排名"] = grouped.apply(
-        lambda group: _rank_position(group, "净利润"),
-        include_groups=False
-    ).reset_index(level=0, drop=True)
+    if "主营收入" in result_df.columns:
+        result_df["行业内营收排名"] = grouped["主营收入"].transform(_rank_position_values)
+    else:
+        result_df["行业内营收排名"] = pd.NA
+
+    if "净利润" in result_df.columns:
+        result_df["行业内净利润排名"] = grouped["净利润"].transform(_rank_position_values)
+    else:
+        result_df["行业内净利润排名"] = pd.NA
 
     percentile_columns = {
         "ROE行业分位": "ROE",
@@ -144,20 +139,10 @@ def add_industry_competitiveness(result_df: pd.DataFrame) -> pd.DataFrame:
     }
 
     for output_column, source_column in percentile_columns.items():
-        result_df[output_column] = grouped.apply(
-            lambda group, column=source_column: _rank_percentile(group, column),
-            include_groups=False
-        ).reset_index(level=0, drop=True)
-
-    score_columns = [
-        "ROE行业分位",
-        "毛利率行业分位",
-        "净利率行业分位",
-        "净利润增速行业分位",
-        "营收增速行业分位",
-        "营收行业分位",
-        "净利润行业分位"
-    ]
+        if source_column in result_df.columns:
+            result_df[output_column] = grouped[source_column].transform(_rank_percentile_values)
+        else:
+            result_df[output_column] = pd.NA
 
     moat_columns = [
         column
@@ -175,12 +160,45 @@ def add_industry_competitiveness(result_df: pd.DataFrame) -> pd.DataFrame:
             axis=1,
             skipna=True
         ).fillna(50).round(2)
-        score_columns.append("技术壁垒代理评分")
 
-    result_df["行业内竞争力评分"] = result_df[score_columns].mean(
-        axis=1,
-        skipna=True
-    ).fillna(50).round(2)
+    score_groups = [
+        (["ROE行业分位", "毛利率行业分位", "净利率行业分位"], 0.35),
+        (["净利润增速行业分位", "营收增速行业分位"], 0.30),
+        (["营收行业分位", "净利润行业分位"], 0.20),
+        (["技术壁垒代理评分"], 0.15),
+    ]
+
+    weighted_sum = pd.Series(0.0, index=result_df.index)
+    weight_sum = pd.Series(0.0, index=result_df.index)
+
+    for columns, weight in score_groups:
+        available_columns = [
+            column
+            for column in columns
+            if column in result_df.columns
+        ]
+
+        if not available_columns:
+            continue
+
+        component_score = result_df[available_columns].mean(axis=1, skipna=True)
+        valid_mask = component_score.notna()
+
+        weighted_sum = weighted_sum.add(
+            component_score.fillna(0) * weight,
+            fill_value=0
+        )
+        weight_sum = weight_sum.add(
+            valid_mask.astype(float) * weight,
+            fill_value=0
+        )
+
+    if weight_sum.gt(0).any():
+        result_df["行业内竞争力评分"] = (
+            weighted_sum / weight_sum.replace(0, pd.NA)
+        ).fillna(50).round(2)
+    else:
+        result_df["行业内竞争力评分"] = 50.0
 
     def leadership_label(row):
         if row["行业内竞争力评分"] >= 80:
