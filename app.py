@@ -199,6 +199,89 @@ def render_app_header():
     )
 
 
+def render_scoring_logic_explainer():
+    with st.expander("评分逻辑与行业量化方法", expanded=False):
+        st.markdown(
+            """
+            系统不是让 AI 直接选股，而是先用规则模型量化评分，再由 AI 生成研究报告。
+            单只股票分析页展示的是个股技术面和基本面；批量筛选页会进一步加入行业优先和行业内竞争力评分。
+            """
+        )
+
+        formula_df = pd.DataFrame([
+            {
+                "模块": "技术面评分",
+                "作用": "判断趋势、动量、量能和回撤是否健康",
+                "主要指标": "MA5、MA10、MA20、MA60、RSI14、MACD、成交量MA、近20日回撤"
+            },
+            {
+                "模块": "基本面评分",
+                "作用": "判断公司盈利质量、成长性、现金流和财务风险",
+                "主要指标": "ROE、ROE稳定性、净利润同比、营收同比、净利率、毛利率稳定性、现金流、资产负债率、EPS"
+            },
+            {
+                "模块": "行业优先评分",
+                "作用": "先看哪些行业更活跃、更值得进入候选池",
+                "主要指标": "行业成交额、行业成交量、行业股票数量、行业平均成交额"
+            },
+            {
+                "模块": "行业内竞争力评分",
+                "作用": "判断公司在所属行业里的相对地位",
+                "主要指标": "营收行业分位、净利润行业分位、ROE行业分位、毛利率行业分位、净利率行业分位、营收增速行业分位、净利润增速行业分位"
+            },
+            {
+                "模块": "技术/壁垒代理评分",
+                "作用": "用可量化指标近似衡量公司是否具备产品、技术、成本或品牌壁垒",
+                "主要指标": "毛利率行业分位、ROE行业分位、ROE稳定性评分、毛利率稳定性评分"
+            }
+        ])
+        st.dataframe(formula_df, use_container_width=True, hide_index=True)
+
+        st.markdown(
+            """
+            批量筛选中的综合排序逻辑：
+
+            1. 先从全 A 股中选出最近交易日成交量靠前的活跃股票。
+            2. 按行业成交活跃度选出优先行业。
+            3. 对候选股票计算技术评分和基本面评分。
+            4. 对候选股票计算行业内竞争力评分。
+            5. 最终综合评分会在原模型评分基础上，额外加入行业内竞争力权重。
+
+            当前默认逻辑可以概括为：
+            """
+        )
+
+        st.code(
+            "原模型评分 = 技术评分 * 技术面权重 + 基本面评分 * 基本面权重\n"
+            "最终综合评分 = 原模型评分 * (1 - 行业内竞争力权重) + 行业内竞争力评分 * 行业内竞争力权重",
+            language="text"
+        )
+
+        industry_df = pd.DataFrame([
+            {
+                "概念": "行业活跃度",
+                "量化方式": "按行业汇总当日成交额和成交量，成交额越高，行业活跃度越高。"
+            },
+            {
+                "概念": "行业地位",
+                "量化方式": "在同一行业内比较主营收入、净利润和综合评分，排名越靠前，行业地位越强。"
+            },
+            {
+                "概念": "话语权/定价权",
+                "量化方式": "用毛利率、净利率、ROE 高于同行的程度做代理指标。"
+            },
+            {
+                "概念": "ROE稳定性",
+                "量化方式": "计算最近多期 ROE 的均值和波动，均值越高、波动越小，稳定性越好。"
+            },
+            {
+                "概念": "细分龙头",
+                "量化方式": "行业内竞争力评分高的公司标记为“强”，中等为“中”，其余为“观察”。"
+            }
+        ])
+        st.dataframe(industry_df, use_container_width=True, hide_index=True)
+
+
 def attach_stock_metadata(result_df: pd.DataFrame, metadata_df: pd.DataFrame) -> pd.DataFrame:
     if result_df.empty or metadata_df.empty:
         return result_df
@@ -287,6 +370,8 @@ def render_single_stock_analysis():
                     "行业分类": metadata["行业分类"]
                 }])
                 st.dataframe(info_df, use_container_width=True, hide_index=True)
+
+                render_scoring_logic_explainer()
 
                 st.subheader(f"{stock_title} 技术面概览")
 
