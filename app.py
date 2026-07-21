@@ -423,6 +423,273 @@ def apply_app_style():
         unsafe_allow_html=True
     )
 
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: #f3f5f8;
+        }
+
+        .block-container {
+            max-width: 1280px;
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
+        }
+
+        [data-testid="stSidebar"] {
+            background: #ffffff;
+            border-right: 1px solid #d9dee8;
+            box-shadow: 6px 0 18px rgba(31, 41, 55, 0.03);
+        }
+
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+            font-size: 1rem;
+            font-weight: 780;
+        }
+
+        .app-header {
+            position: relative;
+            align-items: center;
+            min-height: 8.2rem;
+            padding: 1.35rem 1.45rem;
+            border: 1px solid #d9dee8;
+            border-left: 5px solid #245f54;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .app-header h1 {
+            font-size: 2rem;
+            font-weight: 820;
+            color: #0f172a;
+        }
+
+        .app-header p {
+            margin-top: 0.55rem;
+            color: #475467;
+            font-size: 1rem;
+        }
+
+        .app-header-meta {
+            margin-top: 0.9rem;
+        }
+
+        .header-chip {
+            border-color: #d9dee8;
+            border-radius: 6px;
+            background: #f7f9fc;
+            color: #344054;
+            font-weight: 650;
+        }
+
+        .app-badge {
+            border-radius: 6px;
+            border-color: #b8d2ca;
+            background: #eff8f4;
+            color: #1f5f53;
+            font-size: 0.86rem;
+            font-weight: 780;
+        }
+
+        .workflow-strip {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.45rem;
+            padding: 0.45rem;
+            margin-bottom: 1.1rem;
+            border: 1px solid #d9dee8;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        }
+
+        .workflow-step {
+            min-height: 2.75rem;
+            border: 0;
+            border-radius: 6px;
+            background: #f8fafc;
+            box-shadow: none;
+            color: #293548;
+            font-size: 0.92rem;
+        }
+
+        .workflow-step:first-child {
+            background: #edf7f3;
+            color: #1f5f53;
+        }
+
+        .workflow-index {
+            width: 1.65rem;
+            height: 1.65rem;
+            border-radius: 6px;
+            background: #e8eef9;
+            color: #2458a6;
+            font-weight: 780;
+        }
+
+        .workflow-step:first-child .workflow-index {
+            background: #d9efe6;
+            color: #1f5f53;
+        }
+
+        .section-heading {
+            margin-top: 1.35rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .section-heading h2 {
+            padding-left: 0.7rem;
+            border-left: 4px solid #245f54;
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+
+        .section-heading p {
+            color: #667085;
+            font-size: 0.9rem;
+        }
+
+        .setting-summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin: 0.95rem 0 0.5rem;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+        }
+
+        .setting-pill {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.25rem;
+            min-height: 4.25rem;
+            padding: 0.75rem 0.85rem;
+            border: 1px solid #d9dee8;
+            border-left: 4px solid #2d5da8;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        }
+
+        .setting-label {
+            color: #667085;
+            font-size: 0.78rem;
+            font-weight: 650;
+        }
+
+        .setting-value {
+            color: #0f172a;
+            font-size: 1.05rem;
+            font-weight: 820;
+        }
+
+        div[data-testid="stMetric"] {
+            border: 1px solid #d9dee8;
+            border-left: 4px solid #245f54;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+        }
+
+        div[data-testid="stMetricValue"] {
+            font-size: 1.45rem;
+            color: #0f172a;
+        }
+
+        div[data-testid="stMetricLabel"] p {
+            color: #667085;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .stButton > button {
+            border-radius: 6px;
+            background: #245f54;
+            border-color: #245f54;
+            font-weight: 780;
+            box-shadow: 0 5px 12px rgba(36, 95, 84, 0.18);
+        }
+
+        .stButton > button:hover {
+            background: #1b4b43;
+            border-color: #1b4b43;
+        }
+
+        .stDownloadButton > button {
+            border-radius: 6px;
+            background: #ffffff;
+            color: #245f54;
+            border-color: #245f54;
+            font-weight: 780;
+        }
+
+        div[data-testid="stDataFrame"] {
+            border: 1px solid #d9dee8;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+        }
+
+        div[data-testid="stAlert"] {
+            border-radius: 8px;
+            border: 1px solid #d9dee8;
+        }
+
+        div[data-testid="stExpander"] {
+            border: 1px solid #d9dee8;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.03);
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            padding: 0.25rem;
+            border: 1px solid #d9dee8;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: #475467;
+        }
+
+        .stTabs [aria-selected="true"] {
+            background: #edf7f3;
+            color: #1f5f53;
+        }
+
+        input,
+        textarea,
+        [data-baseweb="select"] > div {
+            border-radius: 6px !important;
+        }
+
+        @media (max-width: 900px) {
+            .setting-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .workflow-strip,
+            .setting-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 def render_app_header():
     st.markdown(
