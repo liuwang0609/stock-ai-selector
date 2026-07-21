@@ -1,3 +1,5 @@
+from html import escape
+
 import pandas as pd
 import streamlit as st
 
@@ -36,14 +38,9 @@ def format_number(value, digits=2):
 
 
 def render_section_heading(title: str, caption: str | None = None):
-    caption_html = f"<p>{caption}</p>" if caption else ""
+    caption_html = f"<p>{escape(caption)}</p>" if caption else ""
     st.markdown(
-        f"""
-        <div class="section-heading">
-            <h2>{title}</h2>
-            {caption_html}
-        </div>
-        """,
+        f'<div class="section-heading"><h2>{escape(title)}</h2>{caption_html}</div>',
         unsafe_allow_html=True
     )
 
@@ -57,28 +54,18 @@ def render_workflow_strip():
         ("05", "AI报告")
     ]
     step_html = "".join(
-        f"""
-        <div class="workflow-step">
-            <span class="workflow-index">{index}</span>
-            <span>{label}</span>
-        </div>
-        """
+        f'<div class="workflow-step"><span class="workflow-index">{index}</span><span>{label}</span></div>'
         for index, label in steps
     )
-    st.markdown(f"<div class=\"workflow-strip\">{step_html}</div>", unsafe_allow_html=True)
+    st.markdown(f'<div class="workflow-strip">{step_html}</div>', unsafe_allow_html=True)
 
 
 def render_setting_summary(items: list[tuple[str, str]]):
     item_html = "".join(
-        f"""
-        <span class="setting-pill">
-            <span class="setting-label">{label}</span>
-            <span class="setting-value">{value}</span>
-        </span>
-        """
+        f'<span class="setting-pill"><span class="setting-label">{escape(label)}</span><span class="setting-value">{escape(value)}</span></span>'
         for label, value in items
     )
-    st.markdown(f"<div class=\"setting-summary\">{item_html}</div>", unsafe_allow_html=True)
+    st.markdown(f'<div class="setting-summary">{item_html}</div>', unsafe_allow_html=True)
 
 
 def apply_app_style():
