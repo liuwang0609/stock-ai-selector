@@ -35,6 +35,52 @@ def format_number(value, digits=2):
     return f"{value:.{digits}f}"
 
 
+def render_section_heading(title: str, caption: str | None = None):
+    caption_html = f"<p>{caption}</p>" if caption else ""
+    st.markdown(
+        f"""
+        <div class="section-heading">
+            <h2>{title}</h2>
+            {caption_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_workflow_strip():
+    steps = [
+        ("01", "行业优先"),
+        ("02", "成交活跃"),
+        ("03", "质量复评"),
+        ("04", "技术择时"),
+        ("05", "AI报告")
+    ]
+    step_html = "".join(
+        f"""
+        <div class="workflow-step">
+            <span class="workflow-index">{index}</span>
+            <span>{label}</span>
+        </div>
+        """
+        for index, label in steps
+    )
+    st.markdown(f"<div class=\"workflow-strip\">{step_html}</div>", unsafe_allow_html=True)
+
+
+def render_setting_summary(items: list[tuple[str, str]]):
+    item_html = "".join(
+        f"""
+        <span class="setting-pill">
+            <span class="setting-label">{label}</span>
+            <span class="setting-value">{value}</span>
+        </span>
+        """
+        for label, value in items
+    )
+    st.markdown(f"<div class=\"setting-summary\">{item_html}</div>", unsafe_allow_html=True)
+
+
 def apply_app_style():
     st.markdown(
         """
@@ -183,6 +229,213 @@ def apply_app_style():
         unsafe_allow_html=True
     )
 
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 1.1rem;
+        }
+
+        .app-header {
+            align-items: center;
+            padding: 1.25rem 1.35rem;
+            border-color: #d7dde7;
+            background: #ffffff;
+            box-shadow: 0 8px 24px rgba(31, 41, 55, 0.06);
+        }
+
+        .app-header h1 {
+            font-size: 1.9rem;
+            color: #0f172a;
+        }
+
+        .app-header p {
+            color: #5b6472;
+        }
+
+        .app-header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.8rem;
+        }
+
+        .header-chip,
+        .app-badge {
+            border: 1px solid #d1d9e6;
+            border-radius: 999px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.82rem;
+            line-height: 1;
+            padding: 0.45rem 0.7rem;
+            white-space: nowrap;
+        }
+
+        .app-badge {
+            border-color: #b7d4ca;
+            background: #eef8f3;
+            color: #236052;
+            font-weight: 700;
+        }
+
+        .workflow-strip {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin: 0 0 1.1rem 0;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            min-height: 3rem;
+            padding: 0.65rem 0.75rem;
+            border: 1px solid #d7dde7;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #273449;
+            font-weight: 700;
+            box-shadow: 0 1px 2px rgba(31, 41, 55, 0.04);
+        }
+
+        .workflow-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.85rem;
+            height: 1.85rem;
+            border-radius: 999px;
+            background: #eaf2ff;
+            color: #255bb8;
+            font-size: 0.78rem;
+            flex: 0 0 auto;
+        }
+
+        .section-heading {
+            margin: 1.25rem 0 0.75rem;
+            padding: 0 0 0.15rem;
+        }
+
+        .section-heading h2 {
+            margin: 0;
+            padding-left: 0.65rem;
+            border-left: 4px solid #2f6f5e;
+            color: #111827;
+            font-size: 1.18rem;
+            line-height: 1.35;
+            font-weight: 780;
+            letter-spacing: 0;
+        }
+
+        .section-heading p {
+            margin: 0.35rem 0 0 0.9rem;
+            color: #667085;
+            font-size: 0.92rem;
+        }
+
+        .setting-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin: 0.85rem 0 0.35rem;
+            padding: 0.8rem;
+            border: 1px solid #d7dde7;
+            border-left: 4px solid #255bb8;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .setting-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            min-height: 2rem;
+            padding: 0.35rem 0.65rem;
+            border: 1px solid #e0e6ef;
+            border-radius: 999px;
+            background: #f8fafc;
+            white-space: nowrap;
+        }
+
+        .setting-label {
+            color: #667085;
+            font-size: 0.82rem;
+        }
+
+        .setting-value {
+            color: #172033;
+            font-weight: 750;
+            font-size: 0.88rem;
+        }
+
+        [data-testid="stSidebar"] {
+            background: #f8fafc;
+        }
+
+        [data-testid="stSidebar"] .stRadio,
+        [data-testid="stSidebar"] .stTextInput,
+        [data-testid="stSidebar"] .stSlider {
+            padding-bottom: 0.35rem;
+        }
+
+        [data-testid="stWidgetLabel"] p {
+            color: #344054;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        div[data-testid="stMetric"] {
+            border-left-color: #2f6f5e;
+            box-shadow: 0 4px 14px rgba(31, 41, 55, 0.06);
+        }
+
+        div[data-testid="stExpander"] {
+            border: 1px solid #d7dde7;
+            border-radius: 8px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        div[data-testid="stExpander"] details summary {
+            font-weight: 750;
+            color: #172033;
+        }
+
+        .stButton > button,
+        .stDownloadButton > button {
+            width: 100%;
+        }
+
+        .stButton > button:focus,
+        .stDownloadButton > button:focus {
+            box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.18);
+        }
+
+        .stRadio [role="radiogroup"] {
+            gap: 0.5rem;
+        }
+
+        div[data-testid="stDataFrame"] {
+            box-shadow: 0 4px 14px rgba(31, 41, 55, 0.05);
+        }
+
+        @media (max-width: 900px) {
+            .app-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .workflow-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 def render_app_header():
     st.markdown(
@@ -191,6 +444,11 @@ def render_app_header():
             <div>
                 <h1>A股AI选股助手</h1>
                 <p>行业优先 · 基本面复评 · 技术面择时 · AI研究报告</p>
+                <div class="app-header-meta">
+                    <span class="header-chip">全A股股票池</span>
+                    <span class="header-chip">行业优先筛选</span>
+                    <span class="header-chip">规则评分 + AI总结</span>
+                </div>
             </div>
             <div class="app-badge">研究辅助工具</div>
         </div>
@@ -360,7 +618,7 @@ def render_single_stock_analysis():
                 metadata = get_stock_metadata(symbol)
                 stock_title = f"{metadata['股票代码']} {metadata['股票名称']}"
 
-                st.subheader(f"{stock_title} 基本信息")
+                render_section_heading(f"{stock_title} 基本信息", "代码、名称、市场板块和行业信息")
 
                 info_df = pd.DataFrame([{
                     "股票代码": metadata["股票代码"],
@@ -373,7 +631,7 @@ def render_single_stock_analysis():
 
                 render_scoring_logic_explainer()
 
-                st.subheader(f"{stock_title} 技术面概览")
+                render_section_heading(f"{stock_title} 技术面概览", "价格、均线、动量和短期趋势")
 
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("最新收盘价", format_number(latest["收盘"]))
@@ -381,7 +639,7 @@ def render_single_stock_analysis():
                 col3.metric("RSI14", format_number(latest["RSI14"]))
                 col4.metric("MACD", format_number(latest["MACD"], 4))
 
-                st.subheader("技术面打分")
+                render_section_heading("技术面打分", "用均线、RSI、MACD、量能和回撤判断当前走势")
 
                 score_col1, score_col2 = st.columns(2)
                 score_col1.metric("综合评分", f"{analysis['score']} / 100")
@@ -397,7 +655,7 @@ def render_single_stock_analysis():
                     for risk in analysis["risks"]:
                         st.write(f"- {risk}")
 
-                st.subheader("基本面概览")
+                render_section_heading("基本面概览", "用盈利能力、成长性、现金流和负债水平判断公司质量")
 
                 fundamental_col1, fundamental_col2, fundamental_col3, fundamental_col4 = st.columns(4)
                 fundamental_col1.metric("基本面评分", f"{fundamental_analysis['score']} / 100")
@@ -423,7 +681,7 @@ def render_single_stock_analysis():
                     for risk in fundamental_analysis["risks"]:
                         st.write(f"- {risk}")
 
-                st.subheader("价格与均线图")
+                render_section_heading("价格与均线图", "趋势线看方向，偏离率看均线之间的距离")
 
                 chart_tab1, chart_tab2 = st.tabs(["趋势线", "均线偏离率"])
 
@@ -446,7 +704,7 @@ def render_single_stock_analysis():
                     st.line_chart(spread_chart_df)
                     st.caption("偏离率图用百分比展示均线之间的距离，更容易看出短期和中期趋势变化。")
 
-                st.subheader("最近交易日数据")
+                render_section_heading("最近交易日数据")
 
                 display_columns = [
                     "日期", "股票代码", "开盘", "最高", "最低", "收盘",
@@ -481,7 +739,7 @@ def render_manual_pool_editor() -> tuple[list[str], pd.DataFrame]:
     except Exception:
         metadata_df = pd.DataFrame({"股票代码": symbols})
 
-    st.subheader("当前股票池预览")
+    render_section_heading("当前股票池预览")
     st.dataframe(metadata_df, use_container_width=True)
 
     return symbols, metadata_df
@@ -524,21 +782,26 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
         if selected_industries:
             filtered_df = filtered_df[filtered_df["行业板块"].isin(selected_industries)].copy()
 
-    st.subheader("股票池预览")
-    st.caption("默认先看行业，再从优先行业中选择成交量活跃的股票。预览最多显示前 300 行。")
+    render_section_heading("股票池预览", "默认先看行业，再从优先行业中选择成交量活跃的股票，预览最多显示前 300 行")
     st.dataframe(filtered_df.head(300), use_container_width=True)
 
     if filtered_df.empty:
         return [], filtered_df
 
     default_scan_count = min(50, len(filtered_df))
-    scan_count = st.number_input(
-        "扫描成交量前多少只股票",
-        min_value=10,
-        max_value=len(filtered_df),
-        value=default_scan_count,
-        step=10
-    )
+    scan_col1, scan_col2 = st.columns([1, 2])
+
+    with scan_col1:
+        scan_count = st.number_input(
+            "扫描成交量前多少只股票",
+            min_value=10,
+            max_value=len(filtered_df),
+            value=default_scan_count,
+            step=10
+        )
+
+    with scan_col2:
+        st.caption("建议先用默认数量测试，确认网页响应正常后再扩大扫描范围。")
 
     with st.expander("运行范围（高级）", expanded=False):
         scan_all = st.checkbox("扫描筛选后的全部股票（非常慢）", value=False)
@@ -565,8 +828,7 @@ def render_full_market_pool_editor() -> tuple[list[str], pd.DataFrame]:
 
 
 def render_batch_screening():
-    st.subheader("批量筛选股票")
-    st.caption("默认流程：优先行业 → 行业内基本面与成交量筛选 → 技术面择时确认 → AI研究报告。")
+    render_section_heading("批量筛选股票", "默认流程：优先行业 → 行业内基本面与成交量筛选 → 技术面择时确认 → AI研究报告")
 
     pool_mode = st.radio(
         "股票池来源",
@@ -579,19 +841,26 @@ def render_batch_screening():
     else:
         symbols, metadata_df = render_manual_pool_editor()
 
-    top_n = st.number_input(
-        "最终输出股票数量",
-        min_value=5,
-        max_value=20,
-        value=10,
-        step=1
-    )
-    industry_first = st.checkbox("启用行业优先模型", value=True)
-    industry_group_column = st.selectbox(
-        "板块评分口径",
-        ["行业板块", "市场板块"],
-        index=0
-    )
+    setting_col1, setting_col2, setting_col3 = st.columns([1, 1, 1])
+
+    with setting_col1:
+        top_n = st.number_input(
+            "最终输出股票数量",
+            min_value=5,
+            max_value=20,
+            value=10,
+            step=1
+        )
+
+    with setting_col2:
+        industry_first = st.checkbox("启用行业优先模型", value=True)
+
+    with setting_col3:
+        industry_group_column = st.selectbox(
+            "板块评分口径",
+            ["行业板块", "市场板块"],
+            index=0
+        )
 
     days = 120
     top_industry_count = 5
@@ -639,11 +908,12 @@ def render_batch_screening():
     technical_weight = technical_weight_percent / 100
     fundamental_weight = 1 - technical_weight
 
-    st.info(
-        f"当前设置：输出 {int(top_n)} 只；技术面 {technical_weight_percent}% / "
-        f"基本面 {int(fundamental_weight * 100)}%；"
-        f"基本面复评 {int(fundamental_review_limit)} 只。"
-    )
+    render_setting_summary([
+        ("输出", f"{int(top_n)} 只"),
+        ("技术 / 基本面", f"{technical_weight_percent}% / {int(fundamental_weight * 100)}%"),
+        ("基本面复评", f"{int(fundamental_review_limit)} 只"),
+        ("行业竞争力", f"{industry_competitiveness_weight_percent}%")
+    ])
 
     if industry_first:
         st.caption(
@@ -684,7 +954,7 @@ def render_batch_screening():
                 )
 
                 if not industry_summary_df.empty:
-                    st.subheader("优先行业")
+                    render_section_heading("优先行业", "按行业活跃度评分排序")
                     st.dataframe(
                         industry_summary_df.head(top_industry_count),
                         use_container_width=True
@@ -710,7 +980,7 @@ def render_batch_screening():
                         .reset_index(drop=True)
                     )
 
-                st.subheader("优先行业中的成交量活跃股票")
+                render_section_heading("优先行业中的成交量活跃股票", "从优先行业里按当天成交量排序")
                 st.dataframe(ranked_volume_df, use_container_width=True)
 
             else:
@@ -724,7 +994,7 @@ def render_batch_screening():
                     st.warning("没有获取到成交量排序结果。")
                     return
 
-                st.subheader("本次实际进入评分模型的成交量前 N 股票池")
+                render_section_heading("本次实际进入评分模型的成交量前 N 股票池")
                 st.dataframe(ranked_volume_df, use_container_width=True)
 
             symbols = ranked_volume_df["股票代码"].tolist()
@@ -768,7 +1038,7 @@ def render_batch_screening():
 
         result_df = result_df.head(top_n)
 
-        st.subheader("筛选结果")
+        render_section_heading("筛选结果", "按最终综合评分排序输出")
         st.dataframe(result_df, use_container_width=True)
 
         csv_data = result_df.to_csv(index=False).encode("utf-8-sig")
@@ -785,7 +1055,7 @@ def render_batch_screening():
         with st.expander("查看发送给 AI 的提示词"):
             st.code(prompt, language="text")
 
-        st.subheader("AI 最终分析")
+        render_section_heading("AI 最终分析", "基于筛选结果生成研究报告和风险提示")
 
         ai_result = generate_ai_analysis(prompt)
         st.markdown(ai_result)
@@ -798,6 +1068,7 @@ st.set_page_config(
 
 apply_app_style()
 render_app_header()
+render_workflow_strip()
 st.caption("仅供学习和研究，不构成投资建议。")
 
 st.sidebar.header("功能选择")
